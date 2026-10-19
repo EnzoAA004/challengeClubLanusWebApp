@@ -91,7 +91,7 @@ Configurar dos proyectos conectados al repositorio:
 
 El backend exporta Express desde `backend/src/server.ts` y solo escucha un puerto en local. Correr migraciones con la URL directa antes de probar una base nueva. Para esta etapa, usar únicamente el entorno Preview; no promover a producción.
 
-El proyecto Vercel anterior fallaba porque usaba preset **Other**, raíz vacía y buscaba `public`. En la revisión de esta etapa se guardaron para el proyecto web la raíz `frontend` y el preset Next.js; la salida quedó en el valor predeterminado del framework. El proyecto backend fija Express mediante `backend/vercel.json`. Completar el despliegue Preview end-to-end y `API_PROXY_URL` antes de la entrega.
+El proyecto Vercel anterior fallaba porque usaba preset **Other**, raíz vacía y buscaba `public`. Se configuraron los proyectos web y API para Preview. La API usa `backend/vercel.json`; su runtime incluye explícitamente el driver `pg` para que Sequelize lo resuelva en Vercel. El frontend reenvía el secreto Preview-only `API_PREVIEW_BYPASS_SECRET` a la API protegida, y `API_PROXY_URL` apunta al despliegue actual. Ambos deployments usan protección de acceso de Vercel. Los enlaces, el procedimiento para continuar en otra PC y los pasos para recuperar Neon están en [CONTINUAR-EN-OTRA-PC.md](CONTINUAR-EN-OTRA-PC.md).
 
 ## Auditoría de dependencias
 
