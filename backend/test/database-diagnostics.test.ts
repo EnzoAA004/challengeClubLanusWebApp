@@ -17,6 +17,7 @@ test('database diagnostics classify PostgreSQL authentication failures without e
     errorClass: 'SequelizeConnectionError',
     postgresCode: '28P01',
     phase: 'postgres_authentication',
+    reason: 'postgres_authentication_rejected',
   });
   assert.equal(JSON.stringify(diagnostics).includes('private-user'), false);
 });
@@ -31,6 +32,18 @@ test('database diagnostics classify DNS failures without recording hostnames or 
     errorClass: 'SequelizeConnectionError',
     systemCode: 'ENOTFOUND',
     phase: 'dns_resolution',
+    reason: 'dns_lookup_failed',
   });
   assert.equal(JSON.stringify(diagnostics).includes('private-host'), false);
+});
+
+test('database diagnostics identify missing PostgreSQL passwords without retaining the error text', () => {
+  const diagnostics = getDatabaseDiagnostics(new Error('SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string'));
+
+  assert.deepEqual(diagnostics, {
+    errorClass: 'Error',
+    phase: 'postgres_authentication',
+    reason: 'database_password_missing',
+  });
+  assert.equal(JSON.stringify(diagnostics).includes('client password'), false);
 });

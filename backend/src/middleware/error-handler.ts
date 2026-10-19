@@ -3,12 +3,14 @@ import { env } from '../config/env';
 import { AppError } from '../errors/app-error';
 
 type DatabaseFailurePhase = 'configuration' | 'dns_resolution' | 'connection' | 'tls_authentication' | 'postgres_authentication' | 'query' | 'unknown';
+type DatabaseFailureReason = 'invalid_connection_url' | 'dns_lookup_failed' | 'database_password_missing' | 'postgres_authentication_rejected' | 'tls_certificate_rejected' | 'connection_failed' | 'query_rejected' | 'unknown';
 
 export function getDatabaseDiagnostics(error: unknown): {
   errorClass?: string;
   postgresCode?: string;
   systemCode?: string;
   phase: DatabaseFailurePhase;
+  reason: DatabaseFailureReason;
 } {
   const chain: object[] = [];
   const visited = new Set<object>();
@@ -37,16 +39,25 @@ export function getDatabaseDiagnostics(error: unknown): {
   }
 
   const message = safeMessages.toLowerCase();
+  const reason: DatabaseFailureReason =
+    /invalid url|database_url.*required|must be a valid url/.test(message) ? 'invalid_connection_url'
+      : systemCode === 'ENOTFOUND' || systemCode === 'EAI_AGAIN' ? 'dns_lookup_failed'
+        : /password must be a string|client password must be a string/.test(message) ? 'database_password_missing'
+          : Boolean(postgresCode && (postgresCode === '28P01' || postgresCode === '28000')) || /password authentication failed|no pg_hba\.conf entry|sasl.*scram|scram-server-first-message/.test(message) ? 'postgres_authentication_rejected'
+            : Boolean(systemCode && /^(?:ERR_TLS|ERR_SSL|CERT_|SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE)/.test(systemCode)) || /certificate|tls|ssl handshake/.test(message) ? 'tls_certificate_rejected'
+              : Boolean(systemCode || (postgresCode && postgresCode.startsWith('08'))) ? 'connection_failed'
+                : chain.some((item) => (item as { name?: unknown }).name === 'SequelizeDatabaseError') ? 'query_rejected'
+                  : 'unknown';
   const phase: DatabaseFailurePhase =
     /invalid url|database_url.*required|must be a valid url/.test(message) ? 'configuration'
       : systemCode === 'ENOTFOUND' || systemCode === 'EAI_AGAIN' ? 'dns_resolution'
-        : Boolean(postgresCode && (postgresCode === '28P01' || postgresCode === '28000')) || /password authentication failed|no pg_hba\.conf entry/.test(message) ? 'postgres_authentication'
+        : reason === 'database_password_missing' || reason === 'postgres_authentication_rejected' ? 'postgres_authentication'
           : Boolean(systemCode && /^(?:ERR_TLS|ERR_SSL|CERT_|SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE)/.test(systemCode)) || /certificate|tls|ssl handshake/.test(message) ? 'tls_authentication'
             : Boolean(systemCode || (postgresCode && postgresCode.startsWith('08'))) ? 'connection'
               : chain.some((item) => (item as { name?: unknown }).name === 'SequelizeDatabaseError') ? 'query'
                 : 'unknown';
 
-  return { ...(errorClass ? { errorClass } : {}), ...(postgresCode ? { postgresCode } : {}), ...(systemCode ? { systemCode } : {}), phase };
+  return { ...(errorClass ? { errorClass } : {}), ...(postgresCode ? { postgresCode } : {}), ...(systemCode ? { systemCode } : {}), phase, reason };
 }
 
 function getDatabaseUrlDiagnostics(): Record<string, string | boolean> {
@@ -61,6 +72,7 @@ function getDatabaseUrlDiagnostics(): Record<string, string | boolean> {
       databaseHost: url.hostname,
       databaseHostIsNeon: url.hostname.endsWith('.neon.tech'),
       databaseConnectionPooled: /-pooler\./.test(url.hostname),
+      databasePasswordConfigured: url.password.length > 0,
       databaseSslMode: url.searchParams.get('sslmode') ?? 'default',
     };
   } catch {
