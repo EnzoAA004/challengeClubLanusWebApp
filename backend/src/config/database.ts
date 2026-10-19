@@ -5,15 +5,14 @@ let sequelize: Sequelize | undefined;
 
 export function getDatabase(): Sequelize {
   if (!sequelize) {
-    sequelize = new Sequelize(requireDatabaseUrl(), {
+    const databaseUrl = new URL(requireDatabaseUrl());
+    // Neon connection strings commonly use sslmode=require. Make hostname
+    // verification explicit so pg keeps the same secure behavior in future versions.
+    databaseUrl.searchParams.set('sslmode', 'verify-full');
+
+    sequelize = new Sequelize(databaseUrl.toString(), {
       dialect: 'postgres',
       logging: false,
-      dialectOptions: {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false,
-        },
-      },
       pool: {
         max: 5,
         min: 0,
