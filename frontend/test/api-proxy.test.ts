@@ -7,6 +7,8 @@ process.env.API_PROXY_URL = 'https://api.example.test';
 
 test('same-origin proxy forwards only the session cookie and a minimal header allowlist', async (t) => {
   const originalFetch = globalThis.fetch;
+  const originalProtectionSecret = process.env.API_PREVIEW_BYPASS_SECRET;
+  process.env.API_PREVIEW_BYPASS_SECRET = 'preview-bypass-test-value';
   let observedRequest: { url: string; method?: string; headers: Headers; body?: ArrayBuffer } | undefined;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     observedRequest = {
@@ -20,13 +22,18 @@ test('same-origin proxy forwards only the session cookie and a minimal header al
       headers: { 'set-cookie': 'grana_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0', 'x-internal': 'hidden' },
     });
   }) as typeof fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    if (originalProtectionSecret === undefined) delete process.env.API_PREVIEW_BYPASS_SECRET;
+    else process.env.API_PREVIEW_BYPASS_SECRET = originalProtectionSecret;
+  });
 
   const request = new NextRequest('https://frontend.example.test/api/accounts/demo?view=summary', {
     headers: {
       cookie: 'grana_session=opaque_token; analytics_id=private-value',
       authorization: 'Bearer should-not-forward',
       'x-forwarded-for': '203.0.113.5',
+      'x-vercel-protection-bypass': 'client-value-must-not-forward',
       accept: 'application/json',
     },
   });
@@ -37,6 +44,7 @@ test('same-origin proxy forwards only the session cookie and a minimal header al
   assert.equal(observedRequest?.method, 'GET');
   assert.equal(observedRequest?.headers.get('cookie'), 'grana_session=opaque_token');
   assert.equal(observedRequest?.headers.get('accept'), 'application/json');
+  assert.equal(observedRequest?.headers.get('x-vercel-protection-bypass'), 'preview-bypass-test-value');
   assert.equal(observedRequest?.headers.has('authorization'), false);
   assert.equal(observedRequest?.headers.has('x-forwarded-for'), false);
   assert.match(response.headers.get('set-cookie') ?? '', /HttpOnly/);
