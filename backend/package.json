@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx --test test/session-service.test.ts",
     "db:migrate": "tsx src/db/run-migrations.ts",
     "db:seed": "tsx src/db/seed-demo.ts"
   },
