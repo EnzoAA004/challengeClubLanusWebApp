@@ -38,19 +38,27 @@ Monorepo de la aplicación Granate, con una interfaz web mobile-first, una API E
 - `GET /api/health`: estado del servidor.
 - `GET /api/health/db`: verifica PostgreSQL ejecutando `SELECT 1`.
 - `POST /api/auth/login`: valida las credenciales de prueba configuradas en el entorno.
-- `GET /api/accounts/demo`: devuelve el saldo y la moneda de la cuenta de demostración.
-- `GET /api/accounts/demo/movements`: lista movimientos; acepta `search`, `type` (`subscription`, `received`, `sent`) y `limit` (1–100).
-- `GET /api/movements/:id`: devuelve el detalle de un movimiento.
+- `GET /api/auth/me`: comprueba la sesión actual.
+- `POST /api/auth/logout`: revoca la sesión actual.
+- `GET /api/accounts/demo`: devuelve el saldo y la moneda de la cuenta de demostración (requiere sesión).
+- `GET /api/accounts/demo/movements`: lista movimientos (requiere sesión); acepta `search`, `type` (`subscription`, `received`, `sent`) y `limit` (1–100).
+- `GET /api/movements/:id`: devuelve el detalle de un movimiento (requiere sesión).
 
-Las migraciones y el seed usan `DATABASE_URL_UNPOOLED` cuando está disponible; las consultas de la API usan `DATABASE_URL`.
+Las migraciones y el seed usan `DATABASE_URL_UNPOOLED` cuando está disponible; las consultas de la API usan `DATABASE_URL`. Las sesiones se guardan en `auth_sessions`; la cookie es `HttpOnly`, `SameSite=Lax`, `Secure` en producción y conserva solo el hash del token en PostgreSQL. La sesión dura 12 horas por defecto o 30 días al activar Recordarme.
 
-El frontend usa `NEXT_PUBLIC_API_URL` para elegir la API. Para desarrollo local, el valor predeterminado es `http://localhost:4000`.
+El frontend hace las llamadas mediante rutas relativas `/api`. Next.js las reenvía a `API_PROXY_URL` para que el navegador y la cookie permanezcan bajo el mismo origen. Para desarrollo local el ejemplo usa `http://localhost:4000`.
 
-## Neon y despliegue
+## Neon y Vercel
 
-Configurar `DATABASE_URL` con la URL pooled (`-pooler`) de Neon en entornos serverless como Vercel. La API requiere TLS para conexiones a Neon y usa un pool pequeño, con mínimo cero conexiones. Configurar `CORS_ORIGIN` con el origen desplegado del frontend y `NEXT_PUBLIC_API_URL` con la URL pública de la API. Guardar estos valores en el administrador de variables de entorno del despliegue; nunca subir archivos `.env`.
+Configurar el proyecto web de Vercel con **Root Directory `frontend`** y `API_PROXY_URL` con la URL pública del backend. El backend se despliega como un proyecto Vercel separado con Root Directory `backend`; configurar `DATABASE_URL` con la URL pooled (`-pooler`) de Neon y `CHALLENGE_LOGIN_EMAIL` / `CHALLENGE_LOGIN_PASSWORD` en sus variables privadas. Las migraciones usan la URL directa `DATABASE_URL_UNPOOLED` y se ejecutan antes de exponer la nueva versión. La API requiere TLS para conexiones a Neon. Guardar valores en el administrador de variables de entorno; nunca subir archivos `.env`.
 
-Las tablas se administran con migraciones explícitas; la aplicación no ejecuta sincronizaciones automáticas. **Pendiente antes de la entrega:** `/home`, `/movimientos` y los endpoints de la cuenta demo todavía no exigen una sesión autenticada. El login actual solo valida credenciales de demostración y no emite una sesión; implementar autenticación y autorización en el backend antes de usar datos reales.
+El deployment asociado al commit `45364ad` falló porque Vercel buscó el directorio de salida `public` y no lo encontró. La configuración actual está tratando el monorepo como un sitio estático en la raíz, aunque Next genera su salida en `frontend/.next`. Corregir el proyecto web con Root Directory `frontend` y framework preset **Next.js**; mantener el backend como proyecto Express separado en `backend`. Esta solución está documentada y todavía no se aplicó en el panel ni generó un deployment.
+
+## Auditoría de dependencias
+
+La auditoría del 19 de octubre de 2026 reportó cuatro vulnerabilidades transitivas: tres asociadas a `postcss@8.4.31` fijado por Next.js y una a `uuid@8.3.2` incluido por Sequelize. `npm audit` y `npm audit --omit=dev` informaron una alerta alta y tres moderadas. Se probó un override de PostCSS `8.5.31`, pero npm mantuvo la versión anidada fijada por Next y la auditoría no cambió; se retiró el override. No se editó el lockfile manualmente ni se forzó el salto mayor de `uuid`; volver a evaluar antes del despliegue.
+
+Vercel detecta el entrypoint Express en `backend/src/server.ts`; el backend y el frontend se configuran como proyectos separados dentro del monorepo. Las tablas se administran con migraciones explícitas; la aplicación no ejecuta sincronizaciones automáticas.
 
 ## Estructura
 
