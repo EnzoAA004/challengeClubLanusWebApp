@@ -87,11 +87,11 @@ Las pruebas cubren comparaciones de credenciales y cookies, login, sesiones vige
 Configurar dos proyectos conectados al repositorio:
 
 1. **Frontend:** raíz `frontend`, preset Next.js, directorio de salida predeterminado y `API_PROXY_URL` con el dominio Preview del backend.
-2. **Backend:** raíz `backend`, preset Express. Configurar como privadas `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CHALLENGE_LOGIN_EMAIL`, `CHALLENGE_LOGIN_PASSWORD` y, si hace falta, `CORS_ORIGIN`.
+2. **Backend:** raíz `backend`, preset Express (fijado en `backend/vercel.json`). Configurar como privadas `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CHALLENGE_LOGIN_EMAIL`, `CHALLENGE_LOGIN_PASSWORD` y, si hace falta, `CORS_ORIGIN`.
 
 El backend exporta Express desde `backend/src/server.ts` y solo escucha un puerto en local. Correr migraciones con la URL directa antes de probar una base nueva. Para esta etapa, usar únicamente el entorno Preview; no promover a producción.
 
-El proyecto Vercel anterior fallaba porque usaba preset **Other**, raíz vacía y buscaba `public`. En la revisión de esta etapa se guardaron para el proyecto web la raíz `frontend` y el preset Next.js; la salida quedó en el valor predeterminado del framework. Todavía hace falta configurar el proyecto backend, `API_PROXY_URL` y completar el despliegue Preview end-to-end.
+El proyecto Vercel anterior fallaba porque usaba preset **Other**, raíz vacía y buscaba `public`. En la revisión de esta etapa se guardaron para el proyecto web la raíz `frontend` y el preset Next.js; la salida quedó en el valor predeterminado del framework. El proyecto backend fija Express mediante `backend/vercel.json`. Completar el despliegue Preview end-to-end y `API_PROXY_URL` antes de la entrega.
 
 ## Auditoría de dependencias
 

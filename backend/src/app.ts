@@ -18,3 +18,5 @@ app.use('/api/health', healthRouter);
 app.use('/api/accounts', requireSession, accountsRouter);
 app.use('/api/movements', requireSession, movementsRouter);
 app.use(errorHandler);
+
+export default app;
