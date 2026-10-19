@@ -9,6 +9,7 @@ function parsePort(value: string | undefined): number {
 }
 
 const databaseUrl = process.env.DATABASE_URL;
+const databaseUrlUnpooled = process.env.DATABASE_URL_UNPOOLED;
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -18,6 +19,7 @@ export const env = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   databaseUrl,
+  databaseUrlUnpooled,
   challengeLoginEmail: process.env.CHALLENGE_LOGIN_EMAIL,
   challengeLoginPassword: process.env.CHALLENGE_LOGIN_PASSWORD,
 };
@@ -27,4 +29,12 @@ export function requireDatabaseUrl(): string {
     throw new Error('DATABASE_URL is required for the database health check.');
   }
   return env.databaseUrl;
+}
+
+export function requireMigrationDatabaseUrl(): string {
+  const url = env.databaseUrlUnpooled ?? env.databaseUrl;
+  if (!url) {
+    throw new Error('DATABASE_URL_UNPOOLED or DATABASE_URL is required to run database migrations.');
+  }
+  return url;
 }

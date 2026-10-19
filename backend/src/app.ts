@@ -2,7 +2,9 @@ import cors from 'cors';
 import express from 'express';
 import { env } from './config/env';
 import { errorHandler } from './middleware/error-handler';
+import { accountsRouter } from './routes/accounts';
 import { healthRouter } from './routes/health';
+import { movementsRouter } from './routes/movements';
 
 export const app = express();
 
@@ -21,4 +23,6 @@ app.post('/api/auth/login', (request, response) => {
   response.json({ status: 'ok' });
 });
 app.use('/api/health', healthRouter);
+app.use('/api/accounts', accountsRouter);
+app.use('/api/movements', movementsRouter);
 app.use(errorHandler);
