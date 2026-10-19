@@ -13,12 +13,11 @@ test('database diagnostics classify PostgreSQL authentication failures without e
     },
   });
 
-  assert.deepEqual(diagnostics, {
-    errorClass: 'SequelizeConnectionError',
-    postgresCode: '28P01',
-    phase: 'postgres_authentication',
-    reason: 'postgres_authentication_rejected',
-  });
+  assert.equal(diagnostics.errorClass, 'SequelizeConnectionError');
+  assert.equal(diagnostics.postgresCode, '28P01');
+  assert.equal(diagnostics.phase, 'postgres_authentication');
+  assert.equal(diagnostics.reason, 'postgres_authentication_rejected');
+  assert.equal(diagnostics.safeErrorMessage?.includes('private-user'), false);
   assert.equal(JSON.stringify(diagnostics).includes('private-user'), false);
 });
 
@@ -28,22 +27,21 @@ test('database diagnostics classify DNS failures without recording hostnames or 
     original: { name: 'Error', code: 'ENOTFOUND', message: 'getaddrinfo ENOTFOUND private-host.example' },
   });
 
-  assert.deepEqual(diagnostics, {
-    errorClass: 'SequelizeConnectionError',
-    systemCode: 'ENOTFOUND',
-    phase: 'dns_resolution',
-    reason: 'dns_lookup_failed',
-  });
+  assert.equal(diagnostics.errorClass, 'SequelizeConnectionError');
+  assert.equal(diagnostics.systemCode, 'ENOTFOUND');
+  assert.equal(diagnostics.phase, 'dns_resolution');
+  assert.equal(diagnostics.reason, 'dns_lookup_failed');
+  assert.equal(diagnostics.safeErrorMessage?.includes('private-host'), false);
   assert.equal(JSON.stringify(diagnostics).includes('private-host'), false);
 });
 
 test('database diagnostics identify missing PostgreSQL passwords without retaining the error text', () => {
-  const diagnostics = getDatabaseDiagnostics(new Error('SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string'));
+  const diagnostics = getDatabaseDiagnostics(new Error('SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string; password=sample-secret'));
 
-  assert.deepEqual(diagnostics, {
-    errorClass: 'Error',
-    phase: 'postgres_authentication',
-    reason: 'database_password_missing',
-  });
-  assert.equal(JSON.stringify(diagnostics).includes('client password'), false);
+  assert.equal(diagnostics.errorClass, 'Error');
+  assert.equal(diagnostics.phase, 'postgres_authentication');
+  assert.equal(diagnostics.reason, 'database_password_missing');
+  assert.equal(diagnostics.safeErrorMessage?.includes('sample-secret'), false);
+  assert.equal(diagnostics.safeErrorMessage?.includes('client password must be a string'), true);
+  assert.equal(JSON.stringify(diagnostics).includes('sample-secret'), false);
 });

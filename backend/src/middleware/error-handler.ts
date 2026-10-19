@@ -11,6 +11,7 @@ export function getDatabaseDiagnostics(error: unknown): {
   systemCode?: string;
   phase: DatabaseFailurePhase;
   reason: DatabaseFailureReason;
+  safeErrorMessage?: string;
 } {
   const chain: object[] = [];
   const visited = new Set<object>();
@@ -26,6 +27,7 @@ export function getDatabaseDiagnostics(error: unknown): {
   let postgresCode: string | undefined;
   let systemCode: string | undefined;
   let safeMessages = '';
+  const messages: string[] = [];
   for (const item of chain) {
     const value = item as { name?: unknown; code?: unknown; message?: unknown };
     if (!errorClass && typeof value.name === 'string' && /^[A-Za-z][A-Za-z0-9_$]{0,63}$/.test(value.name)) {
@@ -35,7 +37,11 @@ export function getDatabaseDiagnostics(error: unknown): {
       if (!postgresCode && /^[0-9A-Z]{5}$/.test(value.code)) postgresCode = value.code;
       if (!systemCode && /^(?:E[A-Z0-9_]{2,30}|ERR_[A-Z0-9_]{2,60})$/.test(value.code)) systemCode = value.code;
     }
-    if (typeof value.message === 'string') safeMessages += ` ${value.message.slice(0, 300)}`;
+    if (typeof value.message === 'string') {
+      const message = value.message.slice(0, 300);
+      safeMessages += ` ${message}`;
+      messages.push(message);
+    }
   }
 
   const message = safeMessages.toLowerCase();
@@ -57,7 +63,31 @@ export function getDatabaseDiagnostics(error: unknown): {
               : chain.some((item) => (item as { name?: unknown }).name === 'SequelizeDatabaseError') ? 'query'
                 : 'unknown';
 
-  return { ...(errorClass ? { errorClass } : {}), ...(postgresCode ? { postgresCode } : {}), ...(systemCode ? { systemCode } : {}), phase, reason };
+  const safeErrorMessage = messages.length > 0 ? sanitizeDatabaseErrorMessage(messages[messages.length - 1]!) : undefined;
+  return {
+    ...(errorClass ? { errorClass } : {}),
+    ...(postgresCode ? { postgresCode } : {}),
+    ...(systemCode ? { systemCode } : {}),
+    phase,
+    reason,
+    ...(safeErrorMessage ? { safeErrorMessage } : {}),
+  };
+}
+
+function sanitizeDatabaseErrorMessage(message: string): string {
+  return message
+    .replace(/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, '[connection string]')
+    .replace(/https?:\/\/[^\s"'<>]+/gi, '[url]')
+    .replace(/([?&](?:password|passwd|pwd|token|secret|sslkey|sslcert|sslrootcert)=)[^&\s]+/gi, '$1[redacted]')
+    .replace(/\b(password|passwd|pwd|token|secret|authorization|cookie)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
+    .replace(/(password authentication failed for user)\s+[^\s,;]+/gi, '$1 [redacted]')
+    .replace(/\b(?:role|user)\s+"?[^"\s,;]+"?/gi, '[database identity]')
+    .replace(/\b(getaddrinfo\s+(?:ENOTFOUND|EAI_AGAIN)\s+)\S+/gi, '$1[host]')
+    .replace(/\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g, '[email]')
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, '[ip]')
+    .replace(/(?:[a-z0-9-]+\.)+(?:neon\.tech|aws\.neon\.tech)/gi, '[database host]')
+    .replace(/[\r\n\t\u0000-\u001f]+/g, ' ')
+    .slice(0, 240);
 }
 
 function getDatabaseUrlDiagnostics(): Record<string, string | boolean> {
