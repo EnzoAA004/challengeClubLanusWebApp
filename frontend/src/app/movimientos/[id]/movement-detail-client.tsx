@@ -61,7 +61,7 @@ export default function MovementDetail() {
           <p className="mt-6 border-t border-[#edf0f3] pt-5 text-2xl font-semibold text-[#182033]">{new Intl.NumberFormat('es-AR', { style: 'currency', currency: movement.currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(movement.amount))}</p>
           <dl className="mt-6 grid gap-4 border-t border-[#edf0f3] pt-5 text-xs">
             <div className="flex justify-between gap-4"><dt className="text-[#8790a0]">Fecha</dt><dd className="text-right text-[#39465e]">{new Intl.DateTimeFormat('es-AR', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(movement.occurredAt))}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-[#8790a0]">Identificador</dt><dd className="max-w-[220px] break-all text-right text-[#39465e]">{movement.id}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-[#8790a0]">Identificador</dt><dd className="max-w-[220px] break-words text-right text-[#39465e]">{movement.id}</dd></div>
           </dl>
         </section>
       )}
