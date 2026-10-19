@@ -13,16 +13,27 @@ import {
   SESSION_DURATION_MS,
   serializeSessionCookie,
 } from '../services/session-service';
+import { loginRateLimit } from '../middleware/login-rate-limit';
 
 export const authRouter = Router();
 
-authRouter.post('/login', async (request, response, next) => {
+authRouter.post('/login', loginRateLimit, async (request, response, next) => {
   try {
-    const { email, password, rememberMe } = request.body as {
+    const body: unknown = request.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new AppError(400, 'Los datos de inicio de sesión no son válidos.');
+    }
+    const { email, password, rememberMe } = body as {
       email?: unknown;
       password?: unknown;
       rememberMe?: unknown;
     };
+    if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      throw new AppError(400, 'Ingresá un email válido.');
+    }
+    if (typeof password !== 'string' || password.length < 1 || password.length > 128) {
+      throw new AppError(400, 'La contraseña debe tener entre 1 y 128 caracteres.');
+    }
     if (rememberMe !== undefined && typeof rememberMe !== 'boolean') {
       throw new AppError(400, 'La opción Recordarme no es válida.');
     }

@@ -1,68 +1,107 @@
 # Challenge Club Lanús
 
-Monorepo de la aplicación Granate, con una interfaz web mobile-first, una API Express y PostgreSQL en Neon.
+Aplicación demo mobile-first para Club Lanús. El monorepo contiene Next.js con App Router, una API Express y PostgreSQL en el proyecto Neon existente.
 
-## Requisitos
+## Requisitos e inicio local
 
-- Node.js 22 o superior
-- npm 10 o superior
-- Una base PostgreSQL existente en Neon
+- Node.js 22 o superior y npm 10 o superior.
+- Una base PostgreSQL existente en Neon con las migraciones aplicadas.
 
-## Inicio local
+```bash
+npm ci
+```
 
-1. Instalar dependencias desde la raíz:
+Copiar `backend/.env.example` a `backend/.env` y `frontend/.env.example` a `frontend/.env.local`. Completar las variables privadas del backend con las credenciales de Neon y las credenciales demo. Luego:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm run dev
+```
 
-2. Copiar `backend/.env.example` a `backend/.env`, completar la URL pooled de Neon en `DATABASE_URL`, la URL directa en `DATABASE_URL_UNPOOLED` y configurar `CHALLENGE_LOGIN_EMAIL` y `CHALLENGE_LOGIN_PASSWORD` con las credenciales de prueba. Copiar `frontend/.env.example` a `frontend/.env.local`.
-3. Iniciar frontend y API:
+Frontend: `http://localhost:3000`. API: `http://localhost:4000`.
 
-   ```bash
-   npm run dev
-   ```
+## Arquitectura y decisiones
 
-   Frontend: `http://localhost:3000`. API: `http://localhost:4000`.
+```text
+frontend/  Next.js, React, TypeScript, Tailwind CSS y App Router
+backend/   Node.js, Express 5, TypeScript, Sequelize 6 y PostgreSQL
+```
 
-## Scripts
+Los paquetes se administran con npm workspaces desde la raíz. La API valida sesiones guardadas en `auth_sessions`; la cookie `grana_session` es `HttpOnly`, `SameSite=Lax` y `Secure` en producción. PostgreSQL guarda el hash SHA-256 del token, nunca el token de cookie. Las sesiones duran 12 horas o 30 días con Recordarme.
 
-- `npm run dev`: inicia frontend y backend en paralelo.
-- `npm run build`: compila backend y frontend.
-- `npm run typecheck`: verifica los tipos TypeScript de ambos workspaces.
-- `npm run db:migrate`: aplica las migraciones pendientes de forma transaccional y versionada.
-- `npm run db:seed`: crea o actualiza los datos de demostración sin duplicar movimientos.
+El proxy de Next.js mantiene las llamadas bajo el origen del frontend. Solo reenvía la cookie `grana_session` y encabezados permitidos, y conserva `Set-Cookie` al responder. Esto evita enviar al backend otras cookies del navegador. La API limita el tamaño de JSON y aplica un límite básico de intentos de login por IP; ese contador vive en memoria de cada instancia y deberá pasar a un almacén compartido antes de escalar el backend.
 
-## API
+La API usa `DATABASE_URL` pooled para consultas. Las migraciones y el seed usan `DATABASE_URL_UNPOOLED` (directa) cuando está definida. La conexión exige validación TLS completa. El esquema se administra con migraciones versionadas; la aplicación no ejecuta sincronización automática de modelos.
 
-- `GET /api/health`: estado del servidor.
-- `GET /api/health/db`: verifica PostgreSQL ejecutando `SELECT 1`.
-- `POST /api/auth/login`: valida las credenciales de prueba configuradas en el entorno.
-- `GET /api/auth/me`: comprueba la sesión actual.
-- `POST /api/auth/logout`: revoca la sesión actual.
-- `GET /api/accounts/demo`: devuelve el saldo y la moneda de la cuenta de demostración (requiere sesión).
-- `GET /api/accounts/demo/movements`: lista movimientos (requiere sesión); acepta `search`, `type` (`subscription`, `received`, `sent`) y `limit` (1–100).
-- `GET /api/movements/:id`: devuelve el detalle de un movimiento (requiere sesión).
+## Variables de entorno
 
-Las migraciones y el seed usan `DATABASE_URL_UNPOOLED` cuando está disponible; las consultas de la API usan `DATABASE_URL`. Las sesiones se guardan en `auth_sessions`; la cookie es `HttpOnly`, `SameSite=Lax`, `Secure` en producción y conserva solo el hash del token en PostgreSQL. La sesión dura 12 horas por defecto o 30 días al activar Recordarme.
+| Variable | Workspace | Uso |
+| --- | --- | --- |
+| `API_PROXY_URL` | frontend | URL base privada de la API Express. Local: `http://localhost:4000`. |
+| `DATABASE_URL` | backend | Conexión pooled de Neon para consultas de la API. |
+| `DATABASE_URL_UNPOOLED` | backend | Conexión directa de Neon para migraciones y seed. |
+| `CHALLENGE_LOGIN_EMAIL` | backend | Email de la cuenta demo. |
+| `CHALLENGE_LOGIN_PASSWORD` | backend | Contraseña de la cuenta demo. |
+| `CORS_ORIGIN` | backend | Orígenes permitidos separados por coma. |
+| `PORT` | backend | Puerto local de Express; predeterminado `4000`. |
 
-El frontend hace las llamadas mediante rutas relativas `/api`. Next.js las reenvía a `API_PROXY_URL` para que el navegador y la cookie permanezcan bajo el mismo origen. Para desarrollo local el ejemplo usa `http://localhost:4000`.
+Los ejemplos están en `backend/.env.example` y `frontend/.env.example`. En Vercel, guardar secretos en las variables privadas del proyecto; no versionar archivos `.env`.
 
-## Neon y Vercel
+## Datos y API
 
-Configurar el proyecto web de Vercel con **Root Directory `frontend`** y `API_PROXY_URL` con la URL pública del backend. El backend se despliega como un proyecto Vercel separado con Root Directory `backend`; configurar `DATABASE_URL` con la URL pooled (`-pooler`) de Neon y `CHALLENGE_LOGIN_EMAIL` / `CHALLENGE_LOGIN_PASSWORD` en sus variables privadas. Las migraciones usan la URL directa `DATABASE_URL_UNPOOLED` y se ejecutan antes de exponer la nueva versión. La API requiere TLS para conexiones a Neon. Guardar valores en el administrador de variables de entorno; nunca subir archivos `.env`.
+| Tabla | Propósito |
+| --- | --- |
+| `bank_accounts` | Cuenta demo, saldo y moneda. |
+| `bank_movements` | Movimientos asociados a la cuenta demo. |
+| `auth_sessions` | Hash del token de sesión, vencimiento y auditoría temporal. |
 
-El deployment asociado al commit `45364ad` falló porque Vercel buscó el directorio de salida `public` y no lo encontró. La configuración actual está tratando el monorepo como un sitio estático en la raíz, aunque Next genera su salida en `frontend/.next`. Corregir el proyecto web con Root Directory `frontend` y framework preset **Next.js**; mantener el backend como proyecto Express separado en `backend`. Esta solución está documentada y todavía no se aplicó en el panel ni generó un deployment.
+| Método y ruta | Acceso | Descripción |
+| --- | --- | --- |
+| `GET /api/health` | Público | Estado de Express. |
+| `GET /api/health/db` | Público | Comprueba Neon con `SELECT 1`. |
+| `POST /api/auth/login` | Público | Valida credenciales demo y crea sesión. |
+| `GET /api/auth/me` | Público | Comprueba sesión vigente. |
+| `POST /api/auth/logout` | Público | Revoca sesión y limpia cookie. |
+| `GET /api/accounts/demo` | Sesión | Saldo y moneda demo. |
+| `GET /api/accounts/demo/movements` | Sesión | Lista movimientos; admite `search`, `type` (`subscription`, `received`, `sent`) y `limit` (1–100). |
+| `GET /api/movements/:id` | Sesión | Detalle de un movimiento. |
+
+Migraciones y datos demo:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+## Verificaciones
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+Las pruebas cubren comparaciones de credenciales y cookies, login, sesiones vigentes/expiradas/revocadas, autorización, validación, límite de intentos, búsqueda, filtros, detalle, respuestas de error y el proxy same-origin. Las pruebas HTTP de la API usan almacenamiento simulado; además se verificaron manualmente los endpoints con la base Neon real.
+
+## Vercel Preview
+
+Configurar dos proyectos conectados al repositorio:
+
+1. **Frontend:** raíz `frontend`, preset Next.js, directorio de salida predeterminado y `API_PROXY_URL` con el dominio Preview del backend.
+2. **Backend:** raíz `backend`, preset Express. Configurar como privadas `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CHALLENGE_LOGIN_EMAIL`, `CHALLENGE_LOGIN_PASSWORD` y, si hace falta, `CORS_ORIGIN`.
+
+El backend exporta Express desde `backend/src/server.ts` y solo escucha un puerto en local. Correr migraciones con la URL directa antes de probar una base nueva. Para esta etapa, usar únicamente el entorno Preview; no promover a producción.
+
+El proyecto Vercel anterior fallaba porque usaba preset **Other**, raíz vacía y buscaba `public`. En la revisión de esta etapa se guardaron para el proyecto web la raíz `frontend` y el preset Next.js; la salida quedó en el valor predeterminado del framework. Todavía hace falta configurar el proyecto backend, `API_PROXY_URL` y completar el despliegue Preview end-to-end.
 
 ## Auditoría de dependencias
 
-La auditoría del 19 de octubre de 2026 reportó cuatro vulnerabilidades transitivas: tres asociadas a `postcss@8.4.31` fijado por Next.js y una a `uuid@8.3.2` incluido por Sequelize. `npm audit` y `npm audit --omit=dev` informaron una alerta alta y tres moderadas. Se probó un override de PostCSS `8.5.31`, pero npm mantuvo la versión anidada fijada por Next y la auditoría no cambió; se retiró el override. No se editó el lockfile manualmente ni se forzó el salto mayor de `uuid`; volver a evaluar antes del despliegue.
+Al 19 de octubre de 2026, `npm audit` y `npm audit --omit=dev` reportan cuatro incidencias transitivas: tres moderadas y una alta. `next@15.5.28` fija `postcss@8.4.31`; el parche de PostCSS está en `8.5.23` o posterior, pero el grafo npm actual no lo resuelve como override desde el workspace. El arreglo que npm ofrece para Next es `16.4.2`, un salto mayor; no se aplicó para evitar una actualización incompatible sin migración y pruebas dedicadas. [Aviso de PostCSS](https://github.com/postcss/postcss/security/advisories/GHSA-r28c-9q8g-f849).
 
-Vercel detecta el entrypoint Express en `backend/src/server.ts`; el backend y el frontend se configuran como proyectos separados dentro del monorepo. Las tablas se administran con migraciones explícitas; la aplicación no ejecuta sincronizaciones automáticas.
+`sequelize@6.37.8` trae `uuid@8.3.2`; el aviso afecta `v3`, `v5` y `v6` cuando se pasa un buffer. Sequelize en este proyecto usa `v1` y `v4`, sin buffer, así que esa ruta vulnerable no se ejecuta aquí. Npm no ofrece una actualización compatible de Sequelize para resolverla; no se forzó un cambio mayor. [Aviso de uuid](https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq).
 
-## Estructura
+## Mejoras posibles
 
-```text
-frontend/  Next.js, App Router, TypeScript y Tailwind CSS
-backend/   Express, TypeScript, Sequelize y PostgreSQL
-```
+- Sustituir el límite de login en memoria por un almacén compartido al escalar funciones.
+- Actualizar Next cuando se pueda validar la migración a una versión con PostCSS corregido.
+- Incorporar autenticación real y gestión de usuarios fuera de las credenciales demo del challenge.
+- Añadir pruebas end-to-end en Preview y automatizarlas en CI.

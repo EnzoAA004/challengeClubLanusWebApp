@@ -22,6 +22,11 @@ export async function fetchApi<T>(path: string, init: RequestInit = {}): Promise
   } catch {
     throw new Error('El servidor respondió con un error. Intentá nuevamente.');
   }
-  if (!response.ok) throw new Error(result.message ?? 'No pudimos cargar la información.');
+  if (!response.ok) {
+    if (response.status === 401 && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.replace('/login');
+    }
+    throw new Error(result.message ?? 'No pudimos cargar la información.');
+  }
   return result;
 }
