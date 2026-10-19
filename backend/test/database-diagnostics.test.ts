@@ -45,3 +45,11 @@ test('database diagnostics identify missing PostgreSQL passwords without retaini
   assert.equal(diagnostics.safeErrorMessage?.includes('client password must be a string'), true);
   assert.equal(JSON.stringify(diagnostics).includes('sample-secret'), false);
 });
+
+test('database diagnostics identify Sequelize deployments missing the pg driver', () => {
+  const diagnostics = getDatabaseDiagnostics(new Error('Please install pg package manually'));
+
+  assert.equal(diagnostics.phase, 'configuration');
+  assert.equal(diagnostics.reason, 'postgres_driver_missing');
+  assert.equal(diagnostics.safeErrorMessage, 'Please install pg package manually');
+});
