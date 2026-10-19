@@ -2,6 +2,77 @@ import type { ErrorRequestHandler } from 'express';
 import { env } from '../config/env';
 import { AppError } from '../errors/app-error';
 
+type DatabaseFailurePhase = 'configuration' | 'dns_resolution' | 'connection' | 'tls_authentication' | 'postgres_authentication' | 'query' | 'unknown';
+
+export function getDatabaseDiagnostics(error: unknown): {
+  errorClass?: string;
+  postgresCode?: string;
+  systemCode?: string;
+  phase: DatabaseFailurePhase;
+} {
+  const chain: object[] = [];
+  const visited = new Set<object>();
+  let current = error;
+  while (typeof current === 'object' && current !== null && !visited.has(current) && chain.length < 5) {
+    visited.add(current);
+    chain.push(current);
+    const candidate = current as { cause?: unknown; original?: unknown; parent?: unknown };
+    current = candidate.cause ?? candidate.original ?? candidate.parent;
+  }
+
+  let errorClass: string | undefined;
+  let postgresCode: string | undefined;
+  let systemCode: string | undefined;
+  let safeMessages = '';
+  for (const item of chain) {
+    const value = item as { name?: unknown; code?: unknown; message?: unknown };
+    if (!errorClass && typeof value.name === 'string' && /^[A-Za-z][A-Za-z0-9_$]{0,63}$/.test(value.name)) {
+      errorClass = value.name;
+    }
+    if (typeof value.code === 'string') {
+      if (!postgresCode && /^[0-9A-Z]{5}$/.test(value.code)) postgresCode = value.code;
+      if (!systemCode && /^(?:E[A-Z0-9_]{2,30}|ERR_[A-Z0-9_]{2,60})$/.test(value.code)) systemCode = value.code;
+    }
+    if (typeof value.message === 'string') safeMessages += ` ${value.message.slice(0, 300)}`;
+  }
+
+  const message = safeMessages.toLowerCase();
+  const phase: DatabaseFailurePhase =
+    /invalid url|database_url.*required|must be a valid url/.test(message) ? 'configuration'
+      : systemCode === 'ENOTFOUND' || systemCode === 'EAI_AGAIN' ? 'dns_resolution'
+        : Boolean(postgresCode && (postgresCode === '28P01' || postgresCode === '28000')) || /password authentication failed|no pg_hba\.conf entry/.test(message) ? 'postgres_authentication'
+          : Boolean(systemCode && /^(?:ERR_TLS|ERR_SSL|CERT_|SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE)/.test(systemCode)) || /certificate|tls|ssl handshake/.test(message) ? 'tls_authentication'
+            : Boolean(systemCode || (postgresCode && postgresCode.startsWith('08'))) ? 'connection'
+              : chain.some((item) => (item as { name?: unknown }).name === 'SequelizeDatabaseError') ? 'query'
+                : 'unknown';
+
+  return { ...(errorClass ? { errorClass } : {}), ...(postgresCode ? { postgresCode } : {}), ...(systemCode ? { systemCode } : {}), phase };
+}
+
+function getDatabaseUrlDiagnostics(): Record<string, string | boolean> {
+  const connectionString = env.databaseUrl;
+  if (!connectionString) return { databaseUrlConfigured: false };
+
+  try {
+    const url = new URL(connectionString);
+    return {
+      databaseUrlConfigured: true,
+      databaseUrlFormatValid: url.protocol === 'postgres:' || url.protocol === 'postgresql:',
+      databaseHost: url.hostname,
+      databaseHostIsNeon: url.hostname.endsWith('.neon.tech'),
+      databaseConnectionPooled: /-pooler\./.test(url.hostname),
+      databaseSslMode: url.searchParams.get('sslmode') ?? 'default',
+    };
+  } catch {
+    return { databaseUrlConfigured: true, databaseUrlFormatValid: false };
+  }
+}
+
+function getRequestId(request: Parameters<ErrorRequestHandler>[1]): string | undefined {
+  const requestId = request.get('x-vercel-id') ?? request.get('x-request-id');
+  return requestId && /^[A-Za-z0-9._:-]{1,128}$/.test(requestId) ? requestId : undefined;
+}
+
 export const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
   if ((error as { type?: string }).type === 'entity.parse.failed') {
     response.status(400).json({ status: 'error', message: 'El cuerpo JSON no es válido.' });
@@ -15,15 +86,13 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, _nex
     ? error.message
     : 'Ocurrió un error interno. Intentá nuevamente más tarde.';
   if (env.nodeEnv !== 'test' && status >= 500) {
-    const errorCode = typeof error === 'object' && error !== null && 'code' in error
-      && typeof error.code === 'string'
-      ? error.code
-      : undefined;
     const isDatabaseHealthCheck = request.path === '/api/health/db';
+    const isDatabaseOperation = isDatabaseHealthCheck || request.path.startsWith('/api/auth/');
+    const requestId = getRequestId(request);
     console.error('Unhandled API error', {
-      ...(error instanceof Error ? { name: error.name } : {}),
-      ...(errorCode ? { code: errorCode } : {}),
-      ...(isDatabaseHealthCheck ? { databaseUrlConfigured: Boolean(env.databaseUrl) } : {}),
+      ...((isDatabaseOperation || (error instanceof Error && error.name.startsWith('Sequelize'))) ? getDatabaseDiagnostics(error) : {}),
+      ...(isDatabaseHealthCheck ? getDatabaseUrlDiagnostics() : {}),
+      ...(requestId ? { requestId } : {}),
     });
   }
   response.status(status).json({ status: 'error', message });

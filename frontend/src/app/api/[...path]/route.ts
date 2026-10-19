@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { createServerApiHeaders } from '../../../lib/server-api-headers';
 
 const sessionCookieName = 'grana_session';
 const maxRequestBytes = 16 * 1024;
@@ -47,14 +48,13 @@ async function proxyApiRequest(request: NextRequest): Promise<Response> {
   }
 
   const sessionCookie = request.cookies.get(sessionCookieName);
-  const headers = new Headers();
   const contentType = request.headers.get('content-type');
   const accept = request.headers.get('accept');
-  const protectionBypassSecret = process.env.API_PREVIEW_BYPASS_SECRET;
-  if (contentType) headers.set('content-type', contentType);
-  if (accept) headers.set('accept', accept);
-  if (protectionBypassSecret) headers.set('x-vercel-protection-bypass', protectionBypassSecret);
-  if (sessionCookie) headers.set('cookie', `${sessionCookieName}=${encodeURIComponent(sessionCookie.value)}`);
+  const headers = createServerApiHeaders({
+    ...(contentType ? { contentType } : {}),
+    ...(accept ? { accept } : {}),
+    ...(sessionCookie ? { sessionCookie: `${sessionCookieName}=${encodeURIComponent(sessionCookie.value)}` } : {}),
+  });
 
   let body: ArrayBuffer | undefined;
   if (request.method === 'POST') {
