@@ -27,3 +27,5 @@ backend/.agents/
 backend/skills-lock.json
 work/
 outputs/
+
+.vercel/

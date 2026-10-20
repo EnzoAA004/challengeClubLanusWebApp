@@ -6,7 +6,10 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "node --import tsx --test test/session-service.test.ts test/api.integration.test.ts test/database-diagnostics.test.ts",
+    "db:migrate": "tsx src/db/run-migrations.ts",
+    "db:seed": "tsx src/db/seed-demo.ts"
   },
   "dependencies": {
     "@neon/config": "^1.9.2",

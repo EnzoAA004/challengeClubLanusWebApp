@@ -2,13 +2,23 @@
 
 :root {
   --granate: #841b31;
+  --granate-deep: #77172b;
   --ink: #182033;
   --muted: #9aa0ad;
-  --surface: #f5f6f8;
+  --surface: #f8f9fb;
+  --surface-card: #ffffff;
 }
 
 * { box-sizing: border-box; }
-html { min-height: 100%; background: #e8e9ec; }
-body { margin: 0; color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+html { min-height: 100%; background: #ececee; }
+body { margin: 0; color: var(--ink); font-family: 'Avenir Next', Avenir, 'Segoe UI', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; }
 button { cursor: pointer; }
+button:disabled { cursor: wait; }
+input::placeholder { color: #a9a9af; opacity: 1; }
+::selection { color: #fff; background: var(--granate); }
+
+@media (min-width: 431px) {
+  body { min-height: 100dvh; }
+  #app-shell { min-height: 100dvh; }
+}
