@@ -2,6 +2,18 @@
 
 Aplicación demo mobile-first para Club Lanús. El monorepo contiene Next.js con App Router, una API Express y PostgreSQL en el proyecto Neon existente.
 
+## Funcionalidades incluidas
+
+- **Login demo:** validación de credenciales, sesión persistida en PostgreSQL mediante cookie `HttpOnly`, opción Recordarme y cierre de sesión.
+- **Home:** cuenta Granate, saldo en USD y los cuatro movimientos más recientes.
+- **Movimientos:** listado real desde PostgreSQL, búsqueda por persona o servicio y filtros por débito automático, recibido o enviado.
+- **Detalle:** consulta individual de cada movimiento desde su tarjeta.
+- **Estados de interfaz:** carga, error con reintento y lista vacía; navegación mobile-first.
+
+La interfaz toma como referencia el [diseño provisto en Figma](https://www.figma.com/design/GXEt9rIWDil8nQN8ewOrVD/Challenge-t%C3%A9cnico?node-id=0-1). La aplicación y los datos son exclusivamente de demostración; no realiza operaciones bancarias reales.
+
+**Para evaluar:** consultar la URL estable de Production cuando figure en la sección Vercel. Los enlaces Preview requieren autorización de Vercel y no son aptos como enlace público de entrega. Las credenciales de prueba son las especificadas en la consigna de Figma; no se almacenan en el repositorio.
+
 ## Requisitos e inicio local
 
 - Node.js 22 o superior y npm 10 o superior.
@@ -11,7 +23,7 @@ Aplicación demo mobile-first para Club Lanús. El monorepo contiene Next.js con
 npm ci
 ```
 
-Copiar `backend/.env.example` a `backend/.env` y `frontend/.env.example` a `frontend/.env.local`. Completar las variables privadas del backend con las credenciales de Neon y las credenciales demo. Luego:
+Copiar `backend/.env.example` a `backend/.env` y `frontend/.env.example` a `frontend/.env.local`. Completar las variables privadas del backend con las credenciales de Neon y las credenciales demo. Para una base nueva destinada exclusivamente a esta demo, ejecutar primero `npm run db:migrate` y luego `npm run db:seed`; si la base demo ya está poblada, no es necesario repetirlos. Luego:
 
 ```bash
 npm run dev
