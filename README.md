@@ -105,7 +105,7 @@ Configurar variables por entorno en Vercel, sin compartir secretos entre Preview
 
 El backend exporta Express desde `backend/src/server.ts` y solo abre un puerto en local. La conexión TLS a PostgreSQL valida el certificado y el hostname. Aplicar únicamente migraciones pendientes; no ejecutar `sync` automático. Los enlaces, el procedimiento para continuar en otra PC y los pasos para recuperar Neon están en [CONTINUAR-EN-OTRA-PC.md](CONTINUAR-EN-OTRA-PC.md).
 
-**Production:** pendiente de configuración y verificación pública. Agregar aquí la URL estable solo después de comprobar login, sesión, movimientos y logout en el despliegue definitivo.
+**Production:** [GranaBank — aplicación pública](https://challengeclublanuswebapp.vercel.app/login). Frontend y API desplegados en Vercel desde `main`; los endpoints públicos de salud de la API y la conexión a PostgreSQL respondieron HTTP 200. La prueba del flujo completo login → Home → Movimientos → Detalle → Logout debe realizarse desde un navegador sin sesión de Vercel antes de la entrega.
 
 ## Auditoría de dependencias
 
