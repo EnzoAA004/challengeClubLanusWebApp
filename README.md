@@ -2,6 +2,12 @@
 
 Aplicación demo mobile-first para Club Lanús. El monorepo contiene Next.js con App Router, una API Express y PostgreSQL en el proyecto Neon existente.
 
+## Enlaces de entrega
+
+- **Aplicación desplegada (Production):** https://challengeclublanuswebapp.vercel.app/login
+- **Repositorio público:** https://github.com/EnzoAA004/challengeClubLanusWebApp
+
+
 ## Funcionalidades incluidas
 
 - **Login demo:** validación de credenciales, sesión persistida en PostgreSQL mediante cookie `HttpOnly`, opción Recordarme y cierre de sesión.
@@ -105,7 +111,7 @@ Configurar variables por entorno en Vercel, sin compartir secretos entre Preview
 
 El backend exporta Express desde `backend/src/server.ts` y solo abre un puerto en local. La conexión TLS a PostgreSQL valida el certificado y el hostname. Aplicar únicamente migraciones pendientes; no ejecutar `sync` automático. Los enlaces, el procedimiento para continuar en otra PC y los pasos para recuperar Neon están en [CONTINUAR-EN-OTRA-PC.md](CONTINUAR-EN-OTRA-PC.md).
 
-**Production:** [GranaBank — aplicación pública](https://challengeclublanuswebapp.vercel.app/login). Frontend y API desplegados en Vercel desde `main`; los endpoints públicos de salud de la API y la conexión a PostgreSQL respondieron HTTP 200. La prueba del flujo completo login → Home → Movimientos → Detalle → Logout debe realizarse desde un navegador sin sesión de Vercel antes de la entrega.
+**Production:** [GranaBank — aplicación pública](https://challengeclublanuswebapp.vercel.app/login). Frontend y API desplegados en Vercel desde `main`; los endpoints públicos de salud de la API y la conexión a PostgreSQL respondieron HTTP 200. El flujo completo de login → Home → Movimientos → Detalle → Logout fue comprobado manualmente en Production por el autor del challenge el 20/10/2026.
 
 ## Auditoría de dependencias
 
