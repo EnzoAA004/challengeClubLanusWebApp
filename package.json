@@ -11,10 +11,16 @@
     "dev:frontend": "npm --workspace frontend run dev",
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
     "typecheck": "npm run typecheck --workspace backend && npm run typecheck --workspace frontend",
+    "test": "npm test --workspace backend && npm test --workspace frontend",
     "db:migrate": "npm run db:migrate --workspace backend",
     "db:seed": "npm run db:seed --workspace backend"
+  },
+  "overrides": {
+    "postcss": "8.5.31",
+    "uuid": "11.1.1"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
   }
 }
+
