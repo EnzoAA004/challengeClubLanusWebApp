@@ -82,22 +82,24 @@ npm run build
 
 Las pruebas cubren comparaciones de credenciales y cookies, login, sesiones vigentes/expiradas/revocadas, autorización, validación, límite de intentos, búsqueda, filtros, detalle, respuestas de error y el proxy same-origin. Las pruebas HTTP de la API usan almacenamiento simulado; además se verificaron manualmente los endpoints con la base Neon real.
 
-## Vercel Preview
+## Vercel
 
-Configurar dos proyectos conectados al repositorio:
+Se reutilizan los dos proyectos existentes: el frontend usa la raíz `frontend` y el preset Next.js; el backend usa la raíz `backend` y el preset Other, con la configuración de funciones de `backend/vercel.json`. Ambos proyectos usan Node.js 24 y conservan Deployment Protection para Preview.
 
-1. **Frontend:** raíz `frontend`, preset Next.js, directorio de salida predeterminado y `API_PROXY_URL` con el dominio Preview del backend.
-2. **Backend:** raíz `backend`, preset Express (fijado en `backend/vercel.json`). Configurar como privadas `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CHALLENGE_LOGIN_EMAIL`, `CHALLENGE_LOGIN_PASSWORD` y, si hace falta, `CORS_ORIGIN`.
+Configurar variables por entorno en Vercel, sin compartir secretos entre Preview y Production salvo el bypass de Preview que necesita el proxy:
 
-El backend exporta Express desde `backend/src/server.ts` y solo escucha un puerto en local. Correr migraciones con la URL directa antes de probar una base nueva. Para esta etapa, usar únicamente el entorno Preview; no promover a producción.
+- **Backend:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CHALLENGE_LOGIN_EMAIL`, `CHALLENGE_LOGIN_PASSWORD` y, si hace falta, `CORS_ORIGIN`.
+- **Frontend:** `API_PROXY_URL` con el dominio estable del backend para Production; el dominio Preview para Preview. `API_PREVIEW_BYPASS_SECRET` solo se usa en Preview.
 
-El proyecto Vercel anterior fallaba porque usaba preset **Other**, raíz vacía y buscaba `public`. Se configuraron los proyectos web y API para Preview. La API usa `backend/vercel.json`; su runtime incluye explícitamente el driver `pg` para que Sequelize lo resuelva en Vercel. El frontend reenvía el secreto Preview-only `API_PREVIEW_BYPASS_SECRET` a la API protegida, y `API_PROXY_URL` apunta al despliegue actual. Ambos deployments usan protección de acceso de Vercel. Los enlaces, el procedimiento para continuar en otra PC y los pasos para recuperar Neon están en [CONTINUAR-EN-OTRA-PC.md](CONTINUAR-EN-OTRA-PC.md).
+El backend exporta Express desde `backend/src/server.ts` y solo abre un puerto en local. La conexión TLS a PostgreSQL valida el certificado y el hostname. Aplicar únicamente migraciones pendientes; no ejecutar `sync` automático. Los enlaces, el procedimiento para continuar en otra PC y los pasos para recuperar Neon están en [CONTINUAR-EN-OTRA-PC.md](CONTINUAR-EN-OTRA-PC.md).
+
+**Production:** pendiente de configuración y verificación pública. Agregar aquí la URL estable solo después de comprobar login, sesión, movimientos y logout en el despliegue definitivo.
 
 ## Auditoría de dependencias
 
-Al 19 de octubre de 2026, `npm audit` y `npm audit --omit=dev` reportan cuatro incidencias transitivas: tres moderadas y una alta. `next@15.5.28` fija `postcss@8.4.31`; el parche de PostCSS está en `8.5.23` o posterior, pero el grafo npm actual no lo resuelve como override desde el workspace. El arreglo que npm ofrece para Next es `16.4.2`, un salto mayor; no se aplicó para evitar una actualización incompatible sin migración y pruebas dedicadas. [Aviso de PostCSS](https://github.com/postcss/postcss/security/advisories/GHSA-r28c-9q8g-f849).
+Verificado el 19 de octubre de 2026 con Node.js 24.11.1 y npm 11.6.2: `npm audit` y `npm audit --omit=dev` reportan cero vulnerabilidades. Se conserva `postcss@8.5.31` para corregir el aviso transitivo de Next 15.5.28. [Aviso de PostCSS](https://github.com/postcss/postcss/security/advisories/GHSA-r28c-9q8g-f849).
 
-`sequelize@6.37.8` trae `uuid@8.3.2`; el aviso afecta `v3`, `v5` y `v6` cuando se pasa un buffer. Sequelize en este proyecto usa `v1` y `v4`, sin buffer, así que esa ruta vulnerable no se ejecuta aquí. Npm no ofrece una actualización compatible de Sequelize para resolverla; no se forzó un cambio mayor. [Aviso de uuid](https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq).
+El override `uuid@11.1.1` incluye la corrección de seguridad para GHSA-w5hq-g745-h8pq. `npm ls uuid postcss` informa que estos overrides quedan fuera de los rangos que declaran Sequelize 6 (`^8.3.2`) y Next (`8.4.31`). La ejecución en Node.js 24 confirmó que el CommonJS `require` y las funciones `uuid.v1`/`uuid.v4` que Sequelize usa siguen disponibles; la inicialización de modelos, generación UUIDv4 y declaraciones de migración también pasaron con datos y un QueryInterface ficticios. Las pruebas HTTP con datos de prueba pasaron aparte. [Corrección de uuid 11.1.1](https://github.com/uuidjs/uuid/releases/tag/v11.1.1).
 
 ## Mejoras posibles
 
